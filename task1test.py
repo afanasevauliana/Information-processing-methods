@@ -1,5 +1,162 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+import math
+
+def theoretical_error(x_nodes, y_nodes, x_eval): # Теоретическая оценка погрешности интерполяции
+    # Использует оценку: |R_n(x)| <= M_{n+1}/(n+1)! * |Π(x - x_i)| где M_{n+1} - максимум (n+1)-й производной
+    n = len(x_nodes)
+    
+    # Вычисляем произведение |x - x_i|
+    product = 1.0
+    for xi in x_nodes:
+        product *= abs(x_eval - xi)
+    
+    # Оценка для производной arccos(x): 
+    # для простоты используем консервативную оценку M = 10
+    # (на самом деле производные arccos растут, но для демонстрации подойдет)
+    M = 10.0
+    
+    factorial = math.factorial(n + 1)
+    
+    return M / factorial * product
+
+def measure_time(func, *args):
+    start = time.time()
+    result = func(*args)
+    end = time.time()
+    return result, end - start
+
+def investigate_n_impact(a, b, f, test_points, func_name):
+    # Исследует влияние количества узлов на точность интерполяции.
+    # Запускает интерполяцию для n = 3, 5, 7, 10, 15 и выводит результаты.
+    print("Исследование влияния количества узлов на точность:")
+    n_values = [3, 5, 7, 10, 15]
+    results = []
+    for n in n_values:
+        # Генерируем равномерные узлы
+        x_nodes = np.linspace(a, b, n)
+        y_nodes = f(x_nodes)
+        
+        # Создаем сетку для проверки
+        x_grid = np.linspace(a, b, 200)
+        y_true = f(x_grid)
+        
+        # Вычисляем Лагранжа
+        y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+        max_error = np.max(np.abs(y_true - y_lagrange))
+
+        # Замер времени
+        start = time.time()
+        y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+        elapsed = time.time() - start
+        
+        results.append({
+            'n': n,
+            'max_error': max_error,
+            'time': elapsed
+        })
+        
+        print(f"n = {n:2d}: max_error = {max_error:.2e}, время = {elapsed:.6f} сек")
+    
+    # Выводим сводную таблицу
+    print("\n" + "-" * 50)
+    print(f"{'n':<6} | {'Максимальная ошибка':<20} | {'Время (сек)':<12}")
+    print("-" * 50)
+    for r in results:
+        print(f"{r['n']:<6} | {r['max_error']:.2e}             | {r['time']:.6f}")
+    
+    return results
+
+
+def investigate_runge_phenomenon():
+    # Исследует феномен Рунге для g(x) = sin(x²) на [-π, π].
+    # Сравнивает равномерные узлы и узлы Чебышева.
+    print("Исследование феномена Рунге:")
+    print("g(x) = sin(x²), x ∈ [-π, π]")
+    a, b = -np.pi, np.pi
+    def g(x):
+        return np.sin(x**2)
+    
+    n = 15  # Количество узлов для исследования
+    
+    x_grid = np.linspace(a, b, 500)
+    y_true = g(x_grid)
+    
+    # 1. Равномерные узлы
+    print(f"\n1. Равномерные узлы (n = {n}):")
+    x_uniform = np.linspace(a, b, n)
+    y_uniform = g(x_uniform)
+
+    y_lagrange_uniform = np.array([lagrange_classic(x_uniform, y_uniform, x) for x in x_grid])
+    error_uniform = np.max(np.abs(y_true - y_lagrange_uniform))
+    print(f"   Максимальная ошибка: {error_uniform:.2e}")
+    
+    # 2. Узлы Чебышева
+    print(f"\n2. Узлы Чебышева (n = {n}):")
+    x_cheb = np.array([np.cos((2*i + 1) / (2*n) * np.pi) for i in range(n)])
+    y_cheb = g(x_cheb)
+    
+    y_lagrange_cheb = np.array([lagrange_classic(x_cheb, y_cheb, x) for x in x_grid])
+    error_cheb = np.max(np.abs(y_true - y_lagrange_cheb))
+    print(f"   Максимальная ошибка: {error_cheb:.2e}")
+    
+    # 3. Графики для визуализации
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+    
+    # График 1: Равномерные узлы
+    ax1.plot(x_grid, y_true, 'b-', label='Исходная функция', linewidth=2)
+    ax1.plot(x_uniform, y_uniform, 'ro', label='Узлы', markersize=6)
+    ax1.plot(x_grid, y_lagrange_uniform, 'g--', label='Интерполяция', linewidth=2)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    ax1.set_title(f'Равномерные узлы (n={n})')
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('y')
+    
+    # График 2: Узлы Чебышева
+    ax2.plot(x_grid, y_true, 'b-', label='Исходная функция', linewidth=2)
+    ax2.plot(x_cheb, y_cheb, 'ro', label='Узлы', markersize=6)
+    ax2.plot(x_grid, y_lagrange_cheb, 'g--', label='Интерполяция', linewidth=2)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    ax2.set_title(f'Узлы Чебышева (n={n})')
+    ax2.set_xlabel('x')
+    ax2.set_ylabel('y')
+    
+    # График 3: Ошибки для равномерных
+    error_uniform_plot = np.abs(y_true - y_lagrange_uniform)
+    ax3.plot(x_grid, error_uniform_plot, 'r-', label='Ошибка (равномерные)', linewidth=2)
+    ax3.grid(True, alpha=0.3)
+    ax3.legend()
+    ax3.set_title('Ошибка при равномерных узлах')
+    ax3.set_xlabel('x')
+    ax3.set_ylabel('|f(x) - P(x)|')
+    ax3.set_yscale('log')
+
+    # График 4: Ошибки для Чебышева
+    error_cheb_plot = np.abs(y_true - y_lagrange_cheb)
+    ax4.plot(x_grid, error_cheb_plot, 'g-', label='Ошибка (Чебышева)', linewidth=2)
+    ax4.grid(True, alpha=0.3)
+    ax4.legend()
+    ax4.set_title('Ошибка при узлах Чебышева')
+    ax4.set_xlabel('x')
+    ax4.set_ylabel('|f(x) - P(x)|')
+    ax4.set_yscale('log')
+    
+    plt.suptitle(f'Феномен Рунге: сравнение узлов (n={n})', fontsize=14)
+    plt.tight_layout()
+    plt.show()
+
+    print(f"{'Тип узлов':<20} | {'Максимальная ошибка':<20}")
+    print("-" * 70)
+    print(f"{'Равномерные':<20} | {error_uniform:.2e}")
+    print(f"{'Чебышева':<20} | {error_cheb:.2e}")
+    
+    if error_uniform > error_cheb * 10:
+        print("\nВывод: Узлы Чебышева значительно уменьшают феномен Рунге")
+    else:
+        print("\nВывод: Узлы Чебышева помогают смягчить феномен Рунге") 
 
 def generate_nodes(node_type, a, b, n):
     if node_type == 1:  # Случайные
@@ -98,45 +255,107 @@ def print_comparison_table(x_nodes, y_nodes, x_grid, y_true):
     error_newton = np.max(np.abs(y_true - y_newton))
     
     # Выводим таблицу
-    print("\n" + "=" * 70)
-    print("СРАВНЕНИЕ МЕТОДОВ ИНТЕРПОЛЯЦИИ (МАКСИМАЛЬНЫЕ ОШИБКИ)")
-    print("=" * 70)
+    print("\nСравнение всех методов интерполяции:")
+    print("-" * 70)
     print(f"{'Метод':<30} | {'Максимальная ошибка':<20}")
     print("-" * 70)
     print(f"{'Лагранж (классический)':<30} | {error_classic:.2e}")
     print(f"{'Лагранж (барицентрический)':<30} | {error_bary:.2e}")
     print(f"{'Ньютон':<30} | {error_newton:.2e}")
-    print("=" * 70)
 
 
 def print_divided_differences_table(x_points, table):
     """Красиво выводит таблицу разделенных разностей"""
     n = len(x_points)
     
-    print("\n" + "=" * 70)
-    print("ТАБЛИЦА РАЗДЕЛЕННЫХ РАЗНОСТЕЙ")
-    print("=" * 70)
-    
+    print("\nТаблица разделенных разностей:")
     # Заголовок
-    header = "x_i\tf(x_i)"
+    print(f"{'x_i':>10} | {'f(x_i)':>12} | ", end="")
     for j in range(1, n):
-        header += f"\t{j}-я разн."
-    print(header)
-    print("-" * 70)
+        print(f"{j}-я разн.{'':>6} | ", end="")
+    print()
+    print("-" * 99)
     
-    # Строки таблицы
     for i in range(n):
-        row = f"{x_points[i]:.4f}\t{table[i, 0]:.6f}"
+        # Первый столбец: x_i
+        print(f"{x_points[i]:>10.4f} | ", end="")
+        
+        # Второй столбец: f(x_i)
+        print(f"{table[i, 0]:>12.6f} | ", end="")
+        
+        # Остальные столбцы: разделенные разности
         for j in range(1, n - i):
-            row += f"\t{table[i, j]:.6f}"
-        print(row)
-    
-    print("-" * 70)
-    # Выводим коэффициенты (диагональ)
-    print("\nКоэффициенты для многочлена Ньютона (диагональ таблицы):")
+            print(f"{table[i, j]:>15.6f} | ", end="")
+        print()
+
+    # # Выводим коэффициенты (диагональ)
+    # print("\nКоэффициенты для многочлена Ньютона:")
+    # for i in range(n):
+    #     print(f"  a{i} = {table[0, i]:.6f}")
+    # print("=" * 70)
+
+    print("\nКоэффициенты для многочлена Ньютона (первая строка таблицы):")
     for i in range(n):
-        print(f"  a{i} = {table[0, i]:.6f}")
-    print("=" * 70)
+        if i == 0:
+            print(f"  a0 = f[x0] = {table[0, 0]:.6f}")
+        elif i == 1:
+            print(f"  a1 = f[x0, x1] = {table[0, 1]:.6f}")
+        elif i == 2:
+            print(f"  a2 = f[x0, x1, x2] = {table[0, 2]:.6f}")
+        else:
+            indices = "".join([f"x{j}" for j in range(i + 1)])
+            print(f"  a{i} = f[{', '.join([f'x{j}' for j in range(i + 1)])}] = {table[0, i]:.6f}")
+
+    print("\nФормула многочлена Ньютона:")
+    print("N(x) = a0 + a1·(x-x0) + a2·(x-x0)(x-x1) + a3·(x-x0)(x-x1)(x-x2) + ...")
+
+def plot_results(x_grid, y_true, x_nodes, y_nodes, y_lagrange, y_newton, func_name, node_type_name):
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+    
+    # График 1: Исходная функция + узлы
+    ax1.plot(x_grid, y_true, 'b-', label='Исходная функция', linewidth=2)
+    ax1.plot(x_nodes, y_nodes, 'ro', label='Узлы интерполяции', markersize=8)
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    ax1.set_title('Исходная функция и узлы интерполяции')
+    ax1.set_xlabel('x')
+    ax1.set_ylabel('y')
+    
+    # График 2: Лагранж
+    ax2.plot(x_grid, y_true, 'b-', label='Исходная функция', linewidth=2, alpha=0.5)
+    ax2.plot(x_grid, y_lagrange, 'g--', label='Лагранж', linewidth=2)
+    ax2.plot(x_nodes, y_nodes, 'ro', label='Узлы', markersize=6)
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    ax2.set_title('Интерполяция Лагранжа')
+    ax2.set_xlabel('x')
+    ax2.set_ylabel('y')
+    
+    # График 3: Ньютон
+    ax3.plot(x_grid, y_true, 'b-', label='Исходная функция', linewidth=2, alpha=0.5)
+    ax3.plot(x_grid, y_newton, 'm-.', label='Ньютон', linewidth=2)
+    ax3.plot(x_nodes, y_nodes, 'ro', label='Узлы', markersize=6)
+    ax3.grid(True, alpha=0.3)
+    ax3.legend()
+    ax3.set_title('Интерполяция Ньютона')
+    ax3.set_xlabel('x')
+    ax3.set_ylabel('y')
+    
+    # График 4: Ошибки
+    error_lagrange = np.abs(y_true - y_lagrange)
+    error_newton = np.abs(y_true - y_newton)
+    ax4.plot(x_grid, error_lagrange, 'g-', label='Ошибка Лагранжа', linewidth=2)
+    ax4.plot(x_grid, error_newton, 'm--', label='Ошибка Ньютона', linewidth=2)
+    ax4.grid(True, alpha=0.3)
+    ax4.legend()
+    ax4.set_title('Ошибки интерполяции')
+    ax4.set_xlabel('x')
+    ax4.set_ylabel('|f(x) - P(x)|')
+    ax4.set_yscale('log')  # Логарифмическая шкала для наглядности
+    
+    plt.suptitle(f'{func_name}, узлы: {node_type_name}', fontsize=14)
+    plt.tight_layout()
+    plt.show()
 
 def main():
     n = 5
@@ -154,7 +373,7 @@ def main():
         print("Выберите функцию:")
         print("  1. f(x) = arccos(x), x ∈ [-1, 1] (основное задание)")
         print("  2. g(x) = sin(x²), x ∈ [-π, π] (феномен Рунге)")
-        print("  0. Выход")
+        print("  0. Выход\n")
         
         try:
             choice_func = int(input("Ваш выбор: "))
@@ -186,10 +405,9 @@ def main():
             print("Выберите 1, 2 или 0")
             continue
     
-    print("\n" + "=" * 70)
-    print(f"    ВЫБРАНА ФУНКЦИЯ: {func_name}")
-    print(f"    Интервал: {interval}")
-    print(f"    Количество узлов: {n}")
+    print(f"Выбрана функция: {func_name}")
+    print(f"Интервал: {interval}")
+    print(f"Количество узлов: {n}")
 
 
 
@@ -200,7 +418,7 @@ def main():
         print("1. Произвольное распределение (генерация случайных чисел)")
         print("2. Равномерное распределение")
         print("3. Узлы Чебышева")
-        print("0. Выход")
+        print("0. Выход\n")
         try:
             choice = int(input("Ваш выбор: "))
         except ValueError:
@@ -230,13 +448,18 @@ def main():
 
 
         while True:
-            print("Выберите, что хотите вычислить:")
+            print("\nВыберите, что хотите вычислить:")
             print("  1. Интерполяционный многочлен Лагранжа L(x) (классический способ)")
             print("  2. Интерполяционный многочлен Лагранжа L(x) (барицентрический вид)")
             print("  3. Разделенные разности")
             print("  4. Интерполяционный многочлен Ньютона N(x)")
             print("  5. Сравнить все методы")
-            print("  0. Вернуться к выбору узлов")
+            print("  6. Построить графики")
+            print("  7. Исследовать влияние количества узлов")
+            print("  8. Исследовать феномен Рунге")
+            print("  9. Сравнить типы узлов")
+            print("  10. Полный анализ (все исследования)")
+            print("  0. Вернуться к выбору узлов\n")
             
             try:
                 choice_method = int(input("Ваш выбор: "))
@@ -248,40 +471,36 @@ def main():
                 print("\nВозврат к выбору узлов...")
                 break
             
-            if choice_method not in [1, 2, 3, 4, 5]:
-                print("Выберите 1, 2, 3, 4, 5 или 0")
+            if choice_method not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+                print("Выберите 1-10 или 0")
                 continue
 
             if choice_method == 1:
-                # 1. КЛАССИЧЕСКИЙ ЛАГРАНЖ
-                print("\n" + "=" * 70)
-                print("МЕТОД: Классический многочлен Лагранжа")
-                print("=" * 70)
+                print("\nМетод: Классический многочлен Лагранжа")
                 
-                print("⏳ Вычисление...")
-                y_interp = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+                y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+                coeffs, _ = divided_differences(x_nodes, y_nodes)
+                y_newton = np.array([newton_polynomial(x_nodes, coeffs, x) for x in x_grid])
                 
-                # Вычисляем ошибку
-                max_error = np.max(np.abs(y_true - y_interp))
+                max_error = np.max(np.abs(y_true - y_lagrange))
                 print(f"\nМаксимальная ошибка: {max_error:.2e}")
                 
-                # Выводим значения в нескольких точках
                 print("\nЗначения в точках:")
                 for x in test_points:
                     y_true_val = f(x)
                     y_interp_val = lagrange_classic(x_nodes, y_nodes, x)
                     print(f"   x = {x:.1f}: f(x) = {y_true_val:.6f}, L(x) = {y_interp_val:.6f}, ошибка = {abs(y_true_val - y_interp_val):.2e}")
-            
+                
+                plot_results(x_grid, y_true, x_nodes, y_nodes, y_lagrange, y_newton, func_name, "Лагранж (классический)")
+
             elif choice_method == 2:
-                # 2. БАРИЦЕНТРИЧЕСКИЙ ЛАГРАНЖ
-                print("\n" + "=" * 70)
-                print("МЕТОД: Барицентрическая форма Лагранжа")
-                print("=" * 70)
+                print("\nМетод: Барицентрическая форма Лагранжа")
                 
-                print("Вычисление...")
-                y_interp = np.array([lagrange_barycentric(x_nodes, y_nodes, x) for x in x_grid])
+                y_lagrange = np.array([lagrange_barycentric(x_nodes, y_nodes, x) for x in x_grid])
+                coeffs, _ = divided_differences(x_nodes, y_nodes)
+                y_newton = np.array([newton_polynomial(x_nodes, coeffs, x) for x in x_grid])
                 
-                max_error = np.max(np.abs(y_true - y_interp))
+                max_error = np.max(np.abs(y_true - y_lagrange))
                 print(f"\nМаксимальная ошибка: {max_error:.2e}")
                 
                 print("\nЗначения в точках:")
@@ -289,37 +508,29 @@ def main():
                     y_true_val = f(x)
                     y_interp_val = lagrange_barycentric(x_nodes, y_nodes, x)
                     print(f"   x = {x:.1f}: f(x) = {y_true_val:.6f}, L(x) = {y_interp_val:.6f}, ошибка = {abs(y_true_val - y_interp_val):.2e}")
+                
+                plot_results(x_grid, y_true, x_nodes, y_nodes, y_lagrange, y_newton, func_name, "Лагранж (барицентрический)")
             
             elif choice_method == 3:
                 # 3. РАЗДЕЛЕННЫЕ РАЗНОСТИ
-                print("\n" + "=" * 70)
-                print("МЕТОД: Разделенные разности")
-                print("=" * 70)
-                
-                print("Вычисление...")
+                print("\nМетод: Разделенные разности")
                 coeffs, table = divided_differences(x_nodes, y_nodes)
                 
                 # Выводим таблицу
                 print_divided_differences_table(x_nodes, table)
-            
+
             elif choice_method == 4:
-                # 4. МНОГОЧЛЕН НЬЮТОНА
-                print("\n" + "=" * 70)
-                print("МЕТОД: Многочлен Ньютона")
-                print("=" * 70)
-                
-                print("Вычисление...")
+                print("\nМетод: Многочлен Ньютона")
                 coeffs, table = divided_differences(x_nodes, y_nodes)
                 
-                # Выводим коэффициенты
                 print("\nКоэффициенты многочлена Ньютона:")
                 for i in range(len(coeffs)):
                     print(f"  a{i} = {coeffs[i]:.6f}")
                 
-                # Вычисляем значения
-                y_interp = np.array([newton_polynomial(x_nodes, coeffs, x) for x in x_grid])
+                y_newton = np.array([newton_polynomial(x_nodes, coeffs, x) for x in x_grid])
+                y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
                 
-                max_error = np.max(np.abs(y_true - y_interp))
+                max_error = np.max(np.abs(y_true - y_newton))
                 print(f"\nМаксимальная ошибка: {max_error:.2e}")
                 
                 print("\nЗначения в точках:")
@@ -327,18 +538,76 @@ def main():
                     y_true_val = f(x)
                     y_interp_val = newton_polynomial(x_nodes, coeffs, x)
                     print(f"   x = {x:.1f}: f(x) = {y_true_val:.6f}, N(x) = {y_interp_val:.6f}, ошибка = {abs(y_true_val - y_interp_val):.2e}")
+                
+                plot_results(x_grid, y_true, x_nodes, y_nodes, y_lagrange, y_newton, func_name, "Ньютон")
             
             elif choice_method == 5:
-                # 5. СРАВНЕНИЕ ВСЕХ МЕТОДОВ
-                print("\n" + "=" * 70)
-                print("СРАВНЕНИЕ ВСЕХ МЕТОДОВ ИНТЕРПОЛЯЦИИ")
-                print("=" * 70)
-                
-                print("Вычисление всех методов...")
                 print_comparison_table(x_nodes, y_nodes, x_grid, y_true)
+
+            elif choice_method == 6:
+                y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+                coeffs, _ = divided_differences(x_nodes, y_nodes)
+                y_newton = np.array([newton_polynomial(x_nodes, coeffs, x) for x in x_grid])
+                plot_results(x_grid, y_true, x_nodes, y_nodes, y_lagrange, y_newton, func_name, "все методы")
+
+            elif choice_method == 7:
+                investigate_n_impact(a, b, f, test_points, func_name)
+
+            elif choice_method == 8:
+                investigate_runge_phenomenon()
+
+            elif choice_method == 9:
+                print("\nСравнение типов узлов:")
+                
+                node_types = [
+                    (1, "Случайные"),
+                    (2, "Равномерные"),
+                    (3, "Чебышева")
+                ]
+                
+                x_grid = np.linspace(a, b, 200)
+                y_true = f(x_grid)
+                
+                results = []
+                for node_type, type_name in node_types:
+                    x_nodes = generate_nodes(node_type, a, b, n)
+                    y_nodes = f(x_nodes)
+                    y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+                    max_error = np.max(np.abs(y_true - y_lagrange))
+                    results.append((type_name, max_error))
+                    
+                    print(f"{type_name}: max_error = {max_error:.2e}")
+                
+                best = min(results, key=lambda x: x[1])
+                print(f"\nЛучший результат: {best[0]} (ошибка = {best[1]:.2e})")
+
+            elif choice_method == 10:
+                print("\nПолный анализ")
+
+                print("\n1.")
+                investigate_n_impact(a, b, f, test_points, func_name)
+                
+                print("\n2. Сравнение типов узлов:")
+                x_grid = np.linspace(a, b, 200)
+                y_true = f(x_grid)
+                
+                node_types = [
+                    (1, "Случайные"),
+                    (2, "Равномерные"),
+                    (3, "Чебышева")
+                ]
+                
+                for node_type, type_name in node_types:
+                    x_nodes = generate_nodes(node_type, a, b, n)
+                    y_nodes = f(x_nodes)
+                    y_lagrange = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
+                    max_error = np.max(np.abs(y_true - y_lagrange))
+                    print(f"   {type_name}: {max_error:.2e}")
+                
+                print("\n3.")
+                investigate_runge_phenomenon()
             
-            # Пауза перед возвратом в меню
-            input("\nНажмите Enter, чтобы продолжить...")
+            input("\nНажмите Enter, чтобы продолжить")
 
 
 if __name__ == "__main__":
