@@ -23,13 +23,10 @@ def investigate_lagrange_degrees(a, b, f, test_points):
         
         print(f"Степень {deg}: узлов = {n_nodes}, max_error = {max_error:.2e}")
     
-    # Вывод сравнения
     print(f"{'Степень':<10} | {'Максимальная ошибка':<20}")
     print("-" * 50)
     for deg, err in results:
         print(f"{deg:<10} | {err:.2e}")
-    
-    # Кто лучше?
     best = min(results, key=lambda x: x[1])
     print(f"\nЛучший результат: степень {best[0]} (ошибка = {best[1]:.2e})")
 
@@ -76,8 +73,7 @@ def investigate_n_impact(a, b, f, test_points, func_name):
         })
         
         print(f"n = {n:2d}: max_error = {max_error:.2e}, время = {elapsed:.6f} сек")
-    
-    # Выводим сводную таблицу
+
     print("\n" + "-" * 50)
     print(f"{'n':<6} | {'Максимальная ошибка':<20} | {'Время (сек)':<12}")
     print("-" * 50)
@@ -166,6 +162,8 @@ def investigate_runge_phenomenon():
     plt.tight_layout()
     plt.show()
 
+    print("")
+    print("-" * 70)
     print(f"{'Тип узлов':<20} | {'Максимальная ошибка':<20}")
     print("-" * 70)
     print(f"{'Равномерные':<20} | {error_uniform:.2e}")
@@ -191,7 +189,7 @@ def lagrange_classic(x_points, y_points, x_eval):
     n = len(x_points)
     result = 0
     
-    for i in range(n):        # Вычисляем базисный полином ℓ_i(x)
+    for i in range(n): # Вычисляем базисный полином ℓ_i(x)
         li = 1
         for j in range(n):
             if j != i:
@@ -202,8 +200,7 @@ def lagrange_classic(x_points, y_points, x_eval):
 
 def lagrange_barycentric(x_points, y_points, x_eval):
     n = len(x_points)
-    
-    # Шаг 1: Вычисляем веса w_i (один раз)
+    # 1: Вычисляем веса w_i (один раз)
     weights = np.zeros(n)
     for i in range(n):
         w = 1.0
@@ -212,15 +209,13 @@ def lagrange_barycentric(x_points, y_points, x_eval):
                 w *= (x_points[i] - x_points[j])
         weights[i] = 1.0 / w
     
-    # Шаг 2: Вычисляем значение в точке
+    # 2: Вычисляем значение в точке
     # Проверяем, не попали ли в узел
     for i in range(n):
         if abs(x_eval - x_points[i]) < 1e-15:
             return y_points[i]
-    
     numerator = 0
     denominator = 0
-    
     for i in range(n):
         term = weights[i] / (x_eval - x_points[i])
         numerator += term * y_points[i]
@@ -230,18 +225,12 @@ def lagrange_barycentric(x_points, y_points, x_eval):
 
 def divided_differences(x_points, y_points):
     n = len(x_points)
-    
-    # Создаем таблицу n x n
     table = np.zeros((n, n))
     table[:, 0] = y_points  # Первый столбец - значения функции
-    
-    # Заполняем остальные столбцы
     for j in range(1, n):
         for i in range(n - j):
             table[i, j] = (table[i+1, j-1] - table[i, j-1]) / (x_points[i+j] - x_points[i])
-    
-    # Коэффициенты - диагональ таблицы
-    coeffs = table[0, :]  # Берем первую строку (это диагональ)
+    coeffs = table[0, :]
     return coeffs, table
 
 def newton_polynomial(x_points, coeffs, x_eval):
@@ -257,10 +246,7 @@ def newton_polynomial(x_points, coeffs, x_eval):
     
     return result
 
-# 6. ВЫВОД СРАВНЕНИЯ МЕТОДОВ (ТОЛЬКО ТАБЛИЦА, БЕЗ ГРАФИКОВ)
-def print_comparison_table(x_nodes, y_nodes, x_grid, y_true):
-    """Выводит таблицу сравнения ошибок всех методов"""
-    
+def print_comparison_table(x_nodes, y_nodes, x_grid, y_true): # Выводит таблицу сравнения ошибок всех методов
     # Вычисляем все методы
     y_classic = np.array([lagrange_classic(x_nodes, y_nodes, x) for x in x_grid])
     y_bary = np.array([lagrange_barycentric(x_nodes, y_nodes, x) for x in x_grid])
@@ -277,7 +263,6 @@ def print_comparison_table(x_nodes, y_nodes, x_grid, y_true):
         theoretical_errors.append(theoretical_error(x_nodes, y_nodes, x))
     max_theoretical = np.max(theoretical_errors)
         
-    # Выводим таблицу
     print("\nСравнение всех методов интерполяции:")
     print("-" * 70)
     print(f"{'Метод':<30} | {'Практическая ошибка':<20} | {'Теоретическая':<15}")
@@ -292,7 +277,6 @@ def print_divided_differences_table(x_points, table):
     n = len(x_points)
     
     print("\nТаблица разделенных разностей:")
-    # Заголовок
     print(f"{'x_i':>10} | {'f(x_i)':>12} | ", end="")
     for j in range(1, n):
         print(f"{j}-я разн.{'':>6} | ", end="")
@@ -300,22 +284,11 @@ def print_divided_differences_table(x_points, table):
     print("-" * 99)
     
     for i in range(n):
-        # Первый столбец: x_i
         print(f"{x_points[i]:>10.4f} | ", end="")
-        
-        # Второй столбец: f(x_i)
         print(f"{table[i, 0]:>12.6f} | ", end="")
-        
-        # Остальные столбцы: разделенные разности
         for j in range(1, n - i):
             print(f"{table[i, j]:>15.6f} | ", end="")
         print()
-
-    # # Выводим коэффициенты (диагональ)
-    # print("\nКоэффициенты для многочлена Ньютона:")
-    # for i in range(n):
-    #     print(f"  a{i} = {table[0, i]:.6f}")
-    # print("=" * 70)
 
     print("\nКоэффициенты для многочлена Ньютона (первая строка таблицы):")
     for i in range(n):
@@ -457,12 +430,10 @@ def main():
         print (f"Получившиеся узлы: {x_nodes}")
         y_nodes = f(x_nodes)
         
-        # Выводим узлы
         print(f"\nСгенерированы узлы:")
         print(f"   x = {np.array2string(x_nodes, precision=6)}")
         print(f"   y = {np.array2string(y_nodes, precision=6)}")
         
-        # Создаем сетку для графиков
         x_grid = np.linspace(a, b, 200)
         y_true = f(x_grid)
 
