@@ -148,10 +148,9 @@ plt.show()
 
 
 # Задача 2: аппроксимация Паде для ln(1+x)
-print("\n\nПункт 2: аппроксимация Паде для ln(1+x)")
+print("\n\nАппроксимация Паде для ln(1+x)")
 
-# Система для b1, b2, b3
-A_pade = np.array([
+A_pade = np.array([ # Система для b1, b2, b3
     [1/3,  -1/2,   1],
     [-1/4,  1/3,  -1/2],
     [1/5,  -1/4,  1/3]
@@ -159,10 +158,7 @@ A_pade = np.array([
 
 b_pade = np.array([1/4, -1/5, 1/6])
 
-# Решаем систему
-b1, b2, b3 = np.linalg.solve(A_pade, b_pade)
-
-# Вычисляем a1, a2, a3
+b1, b2, b3 = np.linalg.solve(A_pade, b_pade) # Решаем систему
 a1 = 1
 a2 = b1 - 1/2
 a3 = b2 - b1/2 + 1/3
@@ -179,7 +175,7 @@ print(f"a3 = {a3:.10f}")
 print()
 print(f"R₃,₃(x) = ({a1:.6f}*x + {a2:.6f}*x² + {a3:.6f}*x³) / (1 + {b1:.6f}*x + {b2:.6f}*x² + {b3:.6f}*x³)")
 print()
-# Исходная функция
+
 def f_ln(x):
     return np.log(1 + x)
 
@@ -194,8 +190,6 @@ x_pade = np.linspace(0, 1, 100)
 y_true = f_ln(x_pade)
 y_pade = pade_approximation(x_pade)
 
-# СКО на отрезке [0, 1]
-# Берем много точек для точной оценки
 x_dense = np.linspace(0, 1, 1000)
 y_true_dense = f_ln(x_dense)
 y_pade_dense = pade_approximation(x_dense)

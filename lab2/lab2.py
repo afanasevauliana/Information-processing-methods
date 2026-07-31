@@ -68,8 +68,7 @@ def eval_spline(spline_coeffs, x): # Вычисление значения сп�
 def eval_spline_vectorized(spline_coeffs, x_array): # Вычисление значений сплайна для массива точек
     return np.array([eval_spline(spline_coeffs, x) for x in x_array])
 
-def compute_rmse(y_true, y_pred):
-    """Вычисление среднеквадратичной ошибки (RMSE)"""
+def compute_rmse(y_true, y_pred): # Вычисление среднеквадратичной ошибки (RMSE)
     return np.sqrt(np.mean((y_true - y_pred) ** 2))
 
 
@@ -108,12 +107,11 @@ def compare_polynomial_spline(a, b, func, func_name, n_nodes_list, node_type_nam
         spline_coeffs = natural_cubic_spline(x_nodes, y_nodes)
         y_spline = eval_spline_vectorized(spline_coeffs, x_fine)
         
-        # Вычисляем RMSE
+        # Вычисление RMSE
         rmse_poly = compute_rmse(y_true, y_poly)
         rmse_spline = compute_rmse(y_true, y_spline)
         results.append((n_nodes, rmse_poly, rmse_spline))
         
-        # Визуализация
         ax.plot(x_fine, y_true, 'k-', linewidth=2, label='Исходная функция')
         ax.plot(x_fine, y_poly, 'r--', linewidth=1.5, label=f'Полином (RMSE={rmse_poly:.2e})')
         ax.plot(x_fine, y_spline, 'b-', linewidth=1.5, label=f'Сплайн (RMSE={rmse_spline:.2e})')
@@ -128,7 +126,6 @@ def compare_polynomial_spline(a, b, func, func_name, n_nodes_list, node_type_nam
     plt.tight_layout()
     plt.show()
     
-    # Вывод таблицы RMSE
     print("\nТаблица RMSE:")
     print(f"{'n':<8} | {'Полином':<15} | {'Сплайн':<15}")
     print("-" * 45)
@@ -154,10 +151,7 @@ def compare_polynomial_spline(a, b, func, func_name, n_nodes_list, node_type_nam
 
 # Пункт 3 в файле: Исследование скорости сходимости
 
-def convergence_study(func, a, b, n_nodes_list, use_chebyshev=False):
-    """
-    Исследование скорости сходимости сплайнов
-    """
+def convergence_study(func, a, b, n_nodes_list, use_chebyshev=False): # Исследование скорости сходимости сплайнов
     x_fine = np.linspace(a, b, 1000)
     y_true = func(x_fine)
     rmse_values = []
@@ -178,8 +172,7 @@ def convergence_study(func, a, b, n_nodes_list, use_chebyshev=False):
     
     return rmse_values
 
-def estimate_convergence_rate(n_nodes_list, rmse_values):
-    """Оценка скорости сходимости по наклону прямой в логарифмическом масштабе"""
+def estimate_convergence_rate(n_nodes_list, rmse_values): # Оценка скорости сходимости по наклону прямой в логарифмическом масштабе
     log_n = np.log(n_nodes_list)
     log_rmse = np.log(rmse_values)
     slope, intercept = np.polyfit(log_n, log_rmse, 1)
@@ -188,21 +181,15 @@ def estimate_convergence_rate(n_nodes_list, rmse_values):
 def investigate_convergence(func, a, b, func_name, n_nodes_list):
     print(f"\nИсследование скорости сходимости сплайнов для {func_name}")
     print(f"Интервал: [{a:.2f}, {b:.2f}]")
-    
-    # Равномерные узлы
-    rmse_uniform = convergence_study(func, a, b, n_nodes_list, use_chebyshev=False)
-    
-    # Узлы Чебышева
-    rmse_cheb = convergence_study(func, a, b, n_nodes_list, use_chebyshev=True)
-    
-    # Вывод таблицы
+    rmse_uniform = convergence_study(func, a, b, n_nodes_list, use_chebyshev=False) # Равномерные узлы
+    rmse_cheb = convergence_study(func, a, b, n_nodes_list, use_chebyshev=True) # Узлы Чебышева
+
     print("\nТаблица RMSE для сплайнов:")
     print(f"{'n':<8} | {'Равномерные узлы':<18} | {'Узлы Чебышева':<18}")
     print("-" * 50)
     for n, ru, rc in zip(n_nodes_list, rmse_uniform, rmse_cheb):
         print(f"{n:<8} | {ru:.2e}       | {rc:.2e}")
     
-    # Оценка скорости сходимости
     rate_uniform = estimate_convergence_rate(n_nodes_list, rmse_uniform)
     rate_cheb = estimate_convergence_rate(n_nodes_list, rmse_cheb)
     
@@ -210,12 +197,10 @@ def investigate_convergence(func, a, b, func_name, n_nodes_list):
     print(f"Экспериментальная скорость сходимости (узлы Чебышева): {rate_cheb:.2f}")
     print(f"Теоретическая оценка для кубического сплайна: 4")
     
-    # График сходимости в логарифмическом масштабе
     plt.figure(figsize=(10, 6))
     plt.loglog(n_nodes_list, rmse_uniform, 'bo-', linewidth=2, markersize=8, label='Равномерные узлы')
     plt.loglog(n_nodes_list, rmse_cheb, 'rs-', linewidth=2, markersize=8, label='Узлы Чебышева')
-    
-    # Добавляем теоретическую оценку для сравнения (наклон -4)
+
     log_n = np.log(n_nodes_list)
     log_rmse_ref = np.log(rmse_uniform[0]) - 4 * (log_n - log_n[0])
     plt.loglog(n_nodes_list, np.exp(log_rmse_ref), 'k--', linewidth=1.5, label='Теоретическая оценка (O(h⁴))')
@@ -256,16 +241,13 @@ def investigate_node_choice(func, a, b, func_name, n_nodes):
         
         y_nodes = func(x_nodes)
         
-        # Построение сплайна
         spline_coeffs = natural_cubic_spline(x_nodes, y_nodes)
         y_spline = eval_spline_vectorized(spline_coeffs, x_fine)
         
-        # Вычисление ошибок
         rmse = compute_rmse(y_true, y_spline)
         max_error = np.max(np.abs(y_true - y_spline))
         results.append((type_name, rmse, max_error))
         
-        # Визуализация
         ax.plot(x_fine, y_true, 'k-', linewidth=2, label='Исходная функция')
         ax.plot(x_fine, y_spline, 'b-', linewidth=1.5, label=f'Сплайн (RMSE={rmse:.2e})')
         ax.plot(x_nodes, y_nodes, 'ro', markersize=6, label='Узлы')
@@ -275,7 +257,6 @@ def investigate_node_choice(func, a, b, func_name, n_nodes):
         ax.legend(fontsize=10)
         ax.grid(True, alpha=0.3)
     
-    # Вывод результатов
     print("\nРезультаты:")
     print(f"{'Тип узлов':<15} | {'RMSE':<12} | {'Максимальная ошибка':<20}")
     print("-" * 55)
@@ -290,7 +271,6 @@ def investigate_node_choice(func, a, b, func_name, n_nodes):
     
     return results
 
-# ==================== ГЛАВНОЕ МЕНЮ ====================
 
 def main():
     while True:
@@ -325,7 +305,6 @@ def main():
     print(f"\nВыбрана функция: {func_name}")
     print(f"Интервал: [{a:.2f}, {b:.2f}]")
     
-    # Основное меню
     while True:
         print("\nМеню:")
         print("  1. Сравнение интерполяционных полиномов и сплайнов")
@@ -344,21 +323,16 @@ def main():
             break
         
         if choice == 1:
-            # Задача 2
             n_nodes_list = [5, 10, 15, 20]
             print(f"\nИспользуемые количества узлов: {n_nodes_list}")
-            
-            # Сравнение с равномерными узлами
             compare_polynomial_spline(a, b, func, func_name, n_nodes_list, "равномерные")
             
         elif choice == 2:
-            # Задача 3
             n_nodes_convergence = [5, 10, 20, 40, 80]
             print(f"\nИспользуемые количества узлов: {n_nodes_convergence}")
             investigate_convergence(func, a, b, func_name, n_nodes_convergence)
             
         elif choice == 3:
-            # Задача 4
             n_nodes = 15
             print(f"\nКоличество узлов: {n_nodes}")
             investigate_node_choice(func, a, b, func_name, n_nodes)
